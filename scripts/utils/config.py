@@ -111,6 +111,10 @@ class _Config:
             proc.get("supported_extensions", [".mp3", ".wav", ".m4a", ".flac", ".ogg", ".webm"])
         )
 
+        # ── notifications ──
+        notif = raw.get("notifications", {})
+        self.ntfy_topic: str = notif.get("ntfy_topic", "") or ""
+
     # ── helpers ──
     def ensure_dirs(self):
         """Create all output directories if they don't exist."""

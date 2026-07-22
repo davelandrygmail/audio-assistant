@@ -44,3 +44,9 @@ processing:
     - ".flac"
     - ".ogg"
     - ".webm"
+
+notifications:
+  # ntfy.sh topic for push notifications (leave empty to disable).
+  # Subscribe to https://ntfy.sh/{topic} on your phone to receive
+  # alerts when processing starts, changes phase, completes, or fails.
+  ntfy_topic: ""
