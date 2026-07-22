@@ -102,6 +102,10 @@ def start_watcher():
     cfg = get_config()
     cfg.watch_dir.mkdir(parents=True, exist_ok=True)
 
+    # Clear any stale status from a previous crashed process
+    from scripts.orchestrator import clear_status
+    clear_status()
+
     handler = AudioHandler()
     observer = Observer()
     observer.schedule(handler, str(cfg.watch_dir), recursive=True)
