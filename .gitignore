@@ -14,6 +14,10 @@ audio-assist-env/
 # ── Runtime artifacts ──
 *.wav
 /tmp/audio_proc_*
+status.json
+
+# ── Downloaded model cache ──
+pretrained_models/
 
 # ── Output directories (outside project dir, but safety) ──
 meeting_reports/
