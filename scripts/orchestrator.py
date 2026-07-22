@@ -24,6 +24,7 @@ from scripts.processing.transcribe import transcribe
 from scripts.processing.diarize import diarize
 from scripts.utils.align import words_from_whisper, assign_speakers, aggregate_utterances
 from scripts.ai.llm_analysis import analyze_with_llm
+from scripts.notify import notify_phase
 
 
 # ── Status tracking ────────────────────────────────────────────────────
@@ -47,6 +48,10 @@ def write_status(file: str | None = None, phase: str | None = None,
         _STATUS_FILE.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     except OSError:
         pass  # best-effort
+
+    # Fire ntfy notification on meaningful transitions
+    if file:
+        notify_phase(file=file, phase=phase or "", status=status, error=error)
 
 
 def clear_status() -> None:
