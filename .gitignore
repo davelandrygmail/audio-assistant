@@ -1,0 +1,24 @@
+# ── Secrets ──
+.env
+
+# ── Python bytecode ──
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Virtual environments ──
+venv/
+.venv/
+audio-assist-env/
+
+# ── Runtime artifacts ──
+*.wav
+/tmp/audio_proc_*
+
+# ── Output directories (outside project dir, but safety) ──
+meeting_reports/
+Recordings/
+
+# ── OS junk ──
+.DS_Store
+Thumbs.db
