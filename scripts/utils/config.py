@@ -90,7 +90,12 @@ class _Config:
         self.whisper_model: str = models.get("whisper", "distil-large-v2")
         self.whisper_device: str = models.get("whisper_device", "cpu")
         self.whisper_compute_type: str = models.get("whisper_compute_type", "int8")
-        self.diarization_model: str = models.get("diarization", "pyannote/speaker-diarization-3.1")
+
+        # ── diarization ──
+        diar = raw.get("diarization", {})
+        self.diarization_method: str = diar.get("method", "lightweight")
+        self.diarization_model: str = diar.get("pyannote_model", "pyannote/speaker-diarization-3.1")
+        self.diarization_clustering_threshold: float = diar.get("clustering_threshold", 0.5)
 
         # ── LLM ──
         llm = raw.get("llm", {})

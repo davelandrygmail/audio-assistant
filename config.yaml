@@ -18,7 +18,15 @@ models:
   whisper_device: "cpu"
   whisper_compute_type: "int8"
 
-  diarization: "pyannote/speaker-diarization-3.1"
+diarization:
+  # "lightweight" (default, faster) or "pyannote" (original, slower)
+  method: "lightweight"
+  # Only used with pyannote — HF model name
+  pyannote_model: "pyannote/speaker-diarization-3.1"
+  # Agglomerative clustering threshold for lightweight backend.
+  # Lower = more speaker splits, higher = fewer.
+  # Tune between 0.3 and 0.7 depending on your recordings.
+  clustering_threshold: 0.5
 
 llm:
   provider: "openrouter"
