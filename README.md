@@ -186,7 +186,19 @@ sudo loginctl enable-linger $USER
 | Component | Tool |
 |-----------|------|
 | Transcription | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (distil-large-v2) |
-| Diarization | [pyannote.audio](https://github.com/pyannote/pyannote-audio) 3.1 |
+| Diarization | Silero VAD + speechbrain ECAPA + sklearn (default) or pyannote (fallback) |
 | LLM | OpenRouter (free-tier, via OpenAI SDK) |
 | Audio conversion | ffmpeg |
 | File watching | watchdog |
+
+## Switching Backends
+
+The lightweight diarization backend is **5-10x faster on CPU**. If you encounter accuracy issues with very similar voices, switch back to pyannote:
+
+```bash
+# Edit config.yaml
+# Change: method: "lightweight" → method: "pyannote"
+
+# Restart the service
+systemctl --user restart audio-assistant
+```
