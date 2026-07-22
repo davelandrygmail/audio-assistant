@@ -26,7 +26,7 @@ diarization:
   # Agglomerative clustering threshold for lightweight backend.
   # Lower = more speaker splits, higher = fewer.
   # Tune between 0.3 and 0.7 depending on your recordings.
-  clustering_threshold: 0.5
+  clustering_threshold: 0.65
 
 llm:
   provider: "openrouter"
