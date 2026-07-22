@@ -131,6 +131,7 @@ def _cluster_embeddings(embeddings: np.ndarray) -> List[str]:
 
     clustering = AgglomerativeClustering(
         n_clusters=None,
+        metric="cosine",
         distance_threshold=threshold,
     ).fit(embeddings)
 
