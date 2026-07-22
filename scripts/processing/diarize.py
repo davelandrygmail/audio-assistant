@@ -41,6 +41,12 @@ def _load_vad():
     return _VAD
 
 
+def _get_speech_ts(wav: torch.Tensor, model, sr: int):
+    """Wrapper: silero_vad.get_speech_timestamps is a module-level function."""
+    from silero_vad import get_speech_timestamps as _gst
+    return _gst(wav, model, sampling_rate=sr)
+
+
 def _load_ecapa():
     global _ECAPA
     if _ECAPA is None:
@@ -74,7 +80,7 @@ def _speech_segments(wav_path: Path) -> List[Dict[str, float]]:
     wav, sr = _resample_if_needed(wav, sr)
 
     # Silero expects a 1-D signal
-    speech_ts = model.get_speech_timestamps(wav[0], sampling_rate=sr)
+    speech_ts = _get_speech_ts(wav[0], model, sr)
 
     segments = []
     for ts in speech_ts:
