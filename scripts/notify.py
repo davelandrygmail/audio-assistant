@@ -63,34 +63,43 @@ def notify_phase(file: str, phase: str, status: str,
 
 
 def _send(topic: str, message: str, attach_path: Optional[Path] = None) -> None:
-    """POST the message to ntfy.sh, optionally with a file attachment."""
+    """POST a notification to ntfy.sh, optionally with a file attachment.
+
+    Attachments are sent as the raw request body with ``Message``,
+    ``Filename`` and ``Content-Type`` headers (ntfy's expected format).
+    Falls back to text-only if the attachment can't be uploaded.
+    """
     import urllib.request
     import urllib.error
 
     url = f"https://ntfy.sh/{topic}"
 
     if attach_path and attach_path.exists() and attach_path.stat().st_size > 0:
-        # Multipart upload — ntfy hosts the file and subscribers can download it
         try:
             import requests
+            # HTTP headers must be ASCII — strip emoji / non-ASCII for the header
+            ascii_message = message.encode("ascii", errors="replace").decode("ascii")
             with open(attach_path, "rb") as f:
                 resp = requests.post(
                     url,
-                    data={"message": message},
-                    files={"file": (attach_path.name, f, "text/markdown")},
+                    data=f,
+                    headers={
+                        "Message": ascii_message,
+                        "Filename": attach_path.name,
+                        "Content-Type": "text/markdown",
+                    },
                     timeout=30,
                 )
             if not resp.ok:
-                log.warning("ntfy attachment upload failed: HTTP %s %s",
-                            resp.status_code, resp.reason)
+                log.warning("ntfy attachment upload failed: HTTP %s", resp.status_code)
             return
         except ImportError:
-            log.warning("requests not available — falling back to text-only notification")
+            log.warning("requests not available — falling back to text-only")
         except Exception as e:
             log.warning("ntfy attachment upload error: %s", e)
             # fall through to text-only
 
-    # Text-only fallback (also used for non-completion notifications)
+    # Text-only fallback
     data = message.encode("utf-8")
     try:
         req = urllib.request.Request(
