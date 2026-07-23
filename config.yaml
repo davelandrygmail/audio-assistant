@@ -9,9 +9,9 @@ paths:
   watch_dir: "~/Recordings"
 
   # Output directories (created on demand)
-  transcripts_dir: "~/meeting_reports/transcripts"
-  reports_dir: "~/meeting_reports"
-  archive_dir: "~/meeting_reports/original_recording"
+  transcripts_dir: "/mnt/data/Transcription/transcripts"
+  reports_dir: "/mnt/data/Transcription"
+  archive_dir: "/mnt/data/Transcription/original_recording"
 
 models:
   whisper: "distil-large-v2"
