@@ -119,8 +119,37 @@ def _extract_embeddings(wav_path: Path, segments: List[Dict]) -> np.ndarray:
     return np.stack(embeddings) if embeddings else np.array([])
 
 
+def _estimate_best_n_clusters(embeddings: np.ndarray, max_k: int = 10) -> int:
+    """Estimate optimal number of speakers using silhouette score.
+
+    Tries k = 2 .. min(max_k, n/2) and returns the k with the highest
+    average silhouette score.
+    """
+    from sklearn.cluster import AgglomerativeClustering
+    from sklearn.metrics import silhouette_score
+
+    n = embeddings.shape[0]
+    best_k, best_score = 2, -1.0
+    upper = min(max_k, n - 1, n // 2)
+
+    for k in range(2, upper + 1):
+        labels = AgglomerativeClustering(
+            n_clusters=k, metric="cosine", linkage="average"
+        ).fit_predict(embeddings)
+        score = silhouette_score(embeddings, labels, metric="cosine")
+        if score > best_score:
+            best_k, best_score = k, score
+
+    return best_k
+
+
 def _cluster_embeddings(embeddings: np.ndarray) -> List[str]:
-    """Assign speaker labels via agglomerative clustering."""
+    """Assign speaker labels via agglomerative clustering.
+
+    Uses the configured ``clustering_threshold`` first.  If that produces
+    more than 10 clusters (unrealistic for dialog), falls back to
+    silhouette-score auto-estimation to pick a sensible speaker count.
+    """
     if embeddings.shape[0] <= 1:
         return [f"SPEAKER_{i:02d}" for i in range(embeddings.shape[0])]
 
@@ -129,12 +158,30 @@ def _cluster_embeddings(embeddings: np.ndarray) -> List[str]:
     cfg = get_config()
     threshold = cfg.diarization_clustering_threshold
 
+    # ── primary: use configured threshold ───────────────────────
     clustering = AgglomerativeClustering(
         n_clusters=None,
         metric="cosine",
         linkage="average",
         distance_threshold=threshold,
     ).fit(embeddings)
+    labels = clustering.labels_
+
+    unique = len(set(labels))
+    if unique <= 10:
+        return [f"SPEAKER_{l:02d}" for l in labels]
+
+    # ── fallback: auto-estimate via silhouette ───────────────────
+    log.warning(
+        "Clustering threshold %.2f produced %d speakers — "
+        "auto-estimating via silhouette score.", threshold, unique,
+    )
+    best_k = _estimate_best_n_clusters(embeddings)
+
+    clustering = AgglomerativeClustering(
+        n_clusters=best_k, metric="cosine", linkage="average"
+    ).fit(embeddings)
+    log.info("Silhouette auto-estimate: %d speakers.", best_k)
 
     return [f"SPEAKER_{l:02d}" for l in clustering.labels_]
 
