@@ -1,10 +1,57 @@
 # scripts/processing/transcribe.py
+import re
 import sys
 from pathlib import Path
 from typing import List, Dict
 
 from faster_whisper import WhisperModel
 from typing import Literal
+
+# ── Hallucination patterns ──────────────────────────────────────────
+# Words matching these are almost certainly Whisper hallucinations
+# (silence / music / noise misrecognised as speech).
+_STUTTER_RE = re.compile(r"^(th|thi|tho|the|tha|thu|th'?|uh|um|er|ah)$", re.IGNORECASE)
+_PUNCT_ONLY_RE = re.compile(r"^[,.!?;:'\"()\[\]{}\s\-—–…·•·]+$")
+
+
+def _is_hallucination(word: str) -> bool:
+    """Return True if *word* looks like a Whisper hallucination artifact."""
+    w = word.strip()
+    if not w:
+        return True
+    if _PUNCT_ONLY_RE.match(w):
+        return True
+    if _STUTTER_RE.match(w):
+        return True
+    return False
+
+
+def _filter_hallucinations(words: List[Dict]) -> List[Dict]:
+    """Remove hallucinated words and collapse repetitive runs.
+
+    Drops words that are bare punctuation, stutter fragments,
+    or part of a repetitive run (same word repeated >3 times).
+    """
+    # ── pass 1: mark individual hallucinated words ────────────────
+    keep = [not _is_hallucination(w["word"]) for w in words]
+
+    # ── pass 2: detect repetitive runs (>3 same word in a row) ───
+    i = 0
+    while i < len(words):
+        if not keep[i]:
+            i += 1
+            continue
+        word = words[i]["word"].strip().lower()
+        j = i + 1
+        while j < len(words) and words[j]["word"].strip().lower() == word:
+            j += 1
+        run_len = j - i
+        if run_len > 3:
+            for k in range(i, j):
+                keep[k] = False
+        i = j
+
+    return [w for w, k in zip(words, keep) if k]
 
 # ------------------------------------------------------------
 #  Helper to load the model only once (lazy‑load pattern)
@@ -66,7 +113,9 @@ def transcribe(
         str(wav_path),
         word_timestamps=True,
         vad_filter=True,
-        vad_parameters=dict(min_silence_duration_ms=500),
+        vad_parameters=dict(
+            min_silence_duration_ms=1000,  # stricter — fewer hallucinations
+        ),
     )
 
     # Convert to OpenAI Whisper format for compatibility with downstream code
@@ -97,12 +146,17 @@ def transcribe(
         })
         full_text_parts.append(segment.text)
 
+    # ── Post-process: strip hallucination artifacts ─────────────
+    all_words = _filter_hallucinations(all_words)
+    # Rebuild segment texts from cleaned words (keeping original timestamps)
+    filtered_text = " ".join(w["word"].strip() for w in all_words)
+
     print(f" done.")
 
     result = {
-        "text": " ".join(full_text_parts),
-        "segments": segments,
-        "words": all_words
+        "text": filtered_text,
+        "segments": segments,  # original segments (timestamps preserved)
+        "words": all_words     # filtered words (hallucinations removed)
     }
 
     return result

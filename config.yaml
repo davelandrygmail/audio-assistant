@@ -24,10 +24,12 @@ diarization:
   # Only used with pyannote — HF model name
   pyannote_model: "pyannote/speaker-diarization-3.1"
   # Agglomerative clustering threshold for lightweight backend.
-  # Uses cosine distance (0 = identical, 1 = orthogonal, 2 = opposite).
-  # Lower = more speaker splits, higher = fewer.
-  # Typical range: 0.3–0.5 for speaker embeddings.
-  clustering_threshold: 0.35
+  # Cosine distance (0 = identical, 1 = orthogonal, 2 = opposite).
+  # Lower values create more speaker splits; higher values merge more.
+  # If the threshold produces >10 speakers, the pipeline auto-estimates
+  # the correct count via silhouette score as a safety net.
+  # Typical range: 0.45–0.65 for conversational speech.
+  clustering_threshold: 0.55
 
 llm:
   provider: "openrouter"

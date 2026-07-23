@@ -10,16 +10,44 @@ def words_from_whisper(whisper_result: dict) -> List[Dict]:
     return words
 
 def assign_speakers(words: List[Dict], turns: List[Dict]) -> List[Dict]:
-    """For each word, pick the speaker whose turn covers its midpoint."""
-    for w in words:
+    """For each word, pick the speaker whose turn covers its midpoint.
+
+    Words whose midpoint falls outside all diarization turns (gaps
+    between VAD segments) are assigned to the **nearest** turn by
+    temporal proximity instead of being left as ``UNKNOWN``.
+    """
+    if not turns:
+        for w in words:
+            w["speaker"] = "UNKNOWN"
+        return words
+
+    # ── primary: exact overlap ────────────────────────────────────
+    orphan_indices: List[int] = []
+    for i, w in enumerate(words):
         mid = (w["start"] + w["end"]) / 2.0
-        # find first turn that contains mid
-        speaker = "UNKNOWN"
+        speaker = None
         for t in turns:
             if t["start"] <= mid < t["end"]:
                 speaker = t["speaker"]
                 break
-        w["speaker"] = speaker
+        if speaker is not None:
+            w["speaker"] = speaker
+        else:
+            orphan_indices.append(i)
+
+    if not orphan_indices:
+        return words
+
+    # ── fallback: nearest turn for orphan words ───────────────────
+    for i in orphan_indices:
+        w = words[i]
+        mid = (w["start"] + w["end"]) / 2.0
+        # Find turn with minimum distance to this word's midpoint
+        best_turn = min(turns, key=lambda t: min(
+            abs(mid - t["start"]), abs(mid - t["end"])
+        ))
+        w["speaker"] = best_turn["speaker"]
+
     return words
 
 def aggregate_utterances(words: List[Dict]) -> List[Dict]:
