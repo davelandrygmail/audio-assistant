@@ -11,6 +11,7 @@ import logging
 import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import Optional
 
 from scripts.utils.config import get_config
@@ -32,10 +33,13 @@ EMOJI_MAP = {
 }
 
 
-def notify_phase(file: str, phase: str, status: str, error: Optional[str] = None) -> None:
+def notify_phase(file: str, phase: str, status: str,
+                error: Optional[str] = None,
+                attach_path: Optional[Path] = None) -> None:
     """Send a ntfy.sh notification for a pipeline phase transition.
 
-    Silently does nothing if ``notifications.ntfy_topic`` is not set in config.
+    If *attach_path* is provided (e.g. the report file on completion)
+    it is uploaded as a file attachment that subscribers can download.
     """
     cfg = get_config()
     topic = cfg.ntfy_topic
@@ -55,17 +59,39 @@ def notify_phase(file: str, phase: str, status: str, error: Optional[str] = None
     else:
         return  # don't notify on idle clear, etc.
 
-    _send(topic, message)
+    _send(topic, message, attach_path=attach_path)
 
 
-def _send(topic: str, message: str) -> None:
-    """POST the message to ntfy.sh via urllib (no external deps)."""
+def _send(topic: str, message: str, attach_path: Optional[Path] = None) -> None:
+    """POST the message to ntfy.sh, optionally with a file attachment."""
     import urllib.request
     import urllib.error
 
     url = f"https://ntfy.sh/{topic}"
-    data = message.encode("utf-8")
 
+    if attach_path and attach_path.exists() and attach_path.stat().st_size > 0:
+        # Multipart upload — ntfy hosts the file and subscribers can download it
+        try:
+            import requests
+            with open(attach_path, "rb") as f:
+                resp = requests.post(
+                    url,
+                    data={"message": message},
+                    files={"file": (attach_path.name, f, "text/markdown")},
+                    timeout=30,
+                )
+            if not resp.ok:
+                log.warning("ntfy attachment upload failed: HTTP %s %s",
+                            resp.status_code, resp.reason)
+            return
+        except ImportError:
+            log.warning("requests not available — falling back to text-only notification")
+        except Exception as e:
+            log.warning("ntfy attachment upload error: %s", e)
+            # fall through to text-only
+
+    # Text-only fallback (also used for non-completion notifications)
+    data = message.encode("utf-8")
     try:
         req = urllib.request.Request(
             url,

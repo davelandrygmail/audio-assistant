@@ -36,7 +36,8 @@ _STATUS_FILE = Path(__file__).resolve().parent.parent / "status.json"
 
 
 def write_status(file: str | None = None, phase: str | None = None,
-                 status: str = "idle", error: str | None = None) -> None:
+                 status: str = "idle", error: str | None = None,
+                 report_path: Path | None = None) -> None:
     """Write a lightweight JSON status file so external tools can monitor progress."""
     data: dict = {
         "status": status,        # "idle" | "processing" | "error"
@@ -54,7 +55,8 @@ def write_status(file: str | None = None, phase: str | None = None,
 
     # Fire ntfy notification on meaningful transitions
     if file:
-        notify_phase(file=file, phase=phase or "", status=status, error=error)
+        notify_phase(file=file, phase=phase or "", status=status,
+                     error=error, attach_path=report_path)
 
 
 def clear_status() -> None:
@@ -199,7 +201,8 @@ def process_audio_file(path: Path) -> Dict[str, Optional[Path]]:
         shutil.move(str(path), str(archive_dest))
         print(f"    → Original archived: {archive_dest.name}")
 
-        write_status(file=file_name, phase="completed", status="idle")
+        write_status(file=file_name, phase="completed", status="idle",
+                     report_path=report_path)
         print(f"[✓] Completed {path.name}")
         return {
             "transcript_path": transcript_path,
