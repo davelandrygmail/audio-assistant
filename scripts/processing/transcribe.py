@@ -90,10 +90,10 @@ def detect_language(wav_path: Path) -> str:
 # determines which Whisper model to use for each detected language.
 # Falls back to the configured default if the language isn't listed.
 LANGUAGE_MODEL_MAP: dict[str, str] = {
-    "en": "distil-large-v2",   # English → fast distilled model
-    "fr": "medium",            # French → multilingual medium
+    "en": "distil-large-v2",      # English → fast distilled model
+    "fr": "large-v3-turbo",       # French → fast multilingual
 }
-DEFAULT_FALLBACK_MODEL = "medium"
+DEFAULT_FALLBACK_MODEL = "large-v3-turbo"   # fallback for any other language
 
 # ------------------------------------------------------------
 #  Helper to load the model only once (lazy‑load pattern)
