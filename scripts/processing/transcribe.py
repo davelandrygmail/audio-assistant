@@ -53,6 +53,48 @@ def _filter_hallucinations(words: List[Dict]) -> List[Dict]:
 
     return [w for w, k in zip(words, keep) if k]
 
+
+def detect_language(wav_path: Path) -> str:
+    """Quickly detect the spoken language using the tiny model.
+
+    Transcribes only the first 30 seconds of audio, which takes
+    ~3 seconds.  Returns the ISO 639-1 language code (e.g. ``"en"``,
+    ``"fr"``) or ``"unknown"`` if detection fails.
+    """
+    model = _load_whisper_model("tiny")
+    duration = 30.0
+
+    try:
+        # Fast probe: only first N seconds
+        segments_iter, info = model.transcribe(
+            str(wav_path),
+            word_timestamps=False,          # skip word-level for speed
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+            initial_prompt=None,
+        )
+        lang = info.language
+        prob = info.language_probability
+        if lang and prob > 0.5:
+            print(f"    → Detected language: {lang} ({prob:.0%})")
+            return lang
+        print(f"    → Language detection uncertain ({lang}: {prob:.0%})")
+        return "unknown"
+    except Exception:
+        return "unknown"
+
+
+# ── Model map for auto-detection ──────────────────────────────────────
+
+# When language_detection is enabled in config.yaml, this map
+# determines which Whisper model to use for each detected language.
+# Falls back to the configured default if the language isn't listed.
+LANGUAGE_MODEL_MAP: dict[str, str] = {
+    "en": "distil-large-v2",   # English → fast distilled model
+    "fr": "medium",            # French → multilingual medium
+}
+DEFAULT_FALLBACK_MODEL = "medium"
+
 # ------------------------------------------------------------
 #  Helper to load the model only once (lazy‑load pattern)
 # ------------------------------------------------------------
@@ -65,18 +107,18 @@ def _load_whisper_model(name: Literal[
     "distil-large-v2", "distil-large-v3", "distil-medium.en",
     "distil-small.en"
 ] = "distil-large-v2") -> WhisperModel:
-    """
-    Load a Faster-Whisper / Distil-Whisper model.
+    """Load (or switch to) a Faster-Whisper / Distil-Whisper model.
 
-    Distil-Whisper models are ~6x faster than standard Whisper with ~95% accuracy.
+    Caches the model globally.  If *name* differs from the cached
+    model, the old one is replaced so the caller can switch between
+    tiny (language detection) and the transcription model on the fly.
     """
     global _loaded_model, _model_name
-    if _loaded_model is None:
-        # Use CPU with INT8 quantization for best speed/accuracy tradeoff
+    if _loaded_model is None or _model_name != name:
         _loaded_model = WhisperModel(
             name,
             device="cpu",
-            compute_type="int8"
+            compute_type="int8",
         )
         _model_name = name
         print(f"[transcribe] Faster-Whisper model '{name}' loaded (CPU, int8).")
@@ -107,7 +149,7 @@ def transcribe(
     model = _load_whisper_model(model_name)
 
     # Faster-Whisper transcribe with progress indicator
-    print(f"    → Starting transcription (distil-large-v2)...", end="", flush=True)
+    print(f"    → Starting transcription ({model_name})...", end="", flush=True)
 
     segments_iter, info = model.transcribe(
         str(wav_path),
