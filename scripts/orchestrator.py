@@ -20,6 +20,7 @@ from typing import Dict, List, Optional
 
 from scripts.utils.config import get_config
 from scripts.utils.validate import validate_audio
+from scripts.utils.chunk import split_wav, merge_chunk_transcripts
 from scripts.processing.convert_wav import to_wav
 from scripts.processing.transcribe import transcribe
 from scripts.processing.diarize import diarize
@@ -106,9 +107,38 @@ def process_audio_file(path: Path) -> Dict[str, Optional[Path]]:
 
         # ── 2. transcribe ──────────────────────────────────────────
         write_status(file=file_name, phase="transcribing", status="processing")
-        print(f"    → Starting transcription ({cfg.whisper_model})...", end="", flush=True)
-        whisper_result = transcribe(wav_path, model_name=cfg.whisper_model)
-        print(" done.")
+
+        should_chunk = cfg.chunk_minutes > 0 and validation.duration_s is not None \
+                       and validation.duration_s > cfg.chunk_minutes * 60
+        chunk_secs = cfg.chunk_minutes * 60
+        chunk_overlap = cfg.chunk_overlap
+
+        if should_chunk:
+            print(f"    → Splitting into {chunk_secs // 60}-minute chunks "
+                  f"(file is {validation.duration_s / 60:.0f} min)...")
+            chunks = split_wav(wav_path, chunk_secs, chunk_overlap, temp_dir=_temp_dir)
+            print(f"    → Transcribing {len(chunks)} chunks "
+                  f"({cfg.whisper_model})...")
+
+            chunk_results: list = []
+            for idx, (start, chunk_path) in enumerate(chunks, 1):
+                print(f"        chunk {idx}/{len(chunks)} "
+                      f"({start / 60:.0f}–{(start + chunk_secs) / 60:.0f} min)...",
+                      end="", flush=True)
+                chunk_res = transcribe(chunk_path, model_name=cfg.whisper_model)
+                chunk_results.append((start, chunk_res))
+                print(" done.")
+
+            print(f"    → Merging chunk transcripts...", end="", flush=True)
+            whisper_result = merge_chunk_transcripts(
+                chunk_results, chunk_secs, chunk_overlap,
+            )
+            print(" done.")
+        else:
+            print(f"    → Starting transcription ({cfg.whisper_model})...",
+                  end="", flush=True)
+            whisper_result = transcribe(wav_path, model_name=cfg.whisper_model)
+            print(" done.")
 
         # ── 3. diarize ─────────────────────────────────────────────
         write_status(file=file_name, phase="diarizing", status="processing")

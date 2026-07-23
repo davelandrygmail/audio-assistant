@@ -39,6 +39,10 @@ llm:
 
 processing:
   debounce_seconds: 2.0
+  # Chunk long audio files into segments for faster transcription.
+  # Set to 0 to disable (always process as one file).
+  chunk_minutes: 20     # files > this get split into chunks
+  chunk_overlap: 5      # seconds of overlap between chunks
   supported_extensions:
     - ".mp3"
     - ".wav"
