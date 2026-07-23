@@ -58,15 +58,32 @@ def analyze_with_llm(utterances: List[Dict], meeting_name: str) -> Path:
     cfg = get_config()
     client = _get_client()
 
-    response = client.chat.completions.create(
-        model=cfg.llm_model,
-        messages=[
-            {"role": "system", "content": "You are a precise executive‑assistant that follows the requested output format exactly."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=cfg.llm_temperature,
-    )
-    markdown_report = response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model=cfg.llm_model,
+            messages=[
+                {"role": "system", "content": "You are a precise executive‑assistant that follows the requested output format exactly."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=cfg.llm_temperature,
+        )
+        markdown_report = response.choices[0].message.content
+    except Exception as e:
+        markdown_report = (
+            "# LLM Analysis Failed\n\n"
+            f"The LLM returned an error: {e}\n\n"
+            "The transcript was saved successfully — re-run analysis when the provider is available.\n"
+        )
+        print(f"    ⚠  LLM API error: {e} — fallback report written")
+    else:
+        if markdown_report is None:
+            markdown_report = (
+                "# LLM Analysis Failed\n\n"
+                "The LLM returned an empty response. "
+                "This may be due to a transient error with the model provider. "
+                "The transcript was saved successfully — re-run analysis when the provider is available.\n"
+            )
+            print("    ⚠  LLM returned None content — fallback report written")
 
     out_dir = cfg.reports_dir
     out_dir.mkdir(parents=True, exist_ok=True)
