@@ -77,10 +77,20 @@ def analyze_with_llm(utterances: List[Dict], meeting_name: str) -> Path:
             markdown_report = response.choices[0].message.content
 
             if markdown_report is not None:
-                break  # success
+                # Safety/content-moderation responses are typically very short
+                # (e.g. "User Safety: safe") — treat them as failures and retry.
+                safe = markdown_report.strip().lower()
+                if len(safe) < 60 or safe.startswith("user safety"):
+                    print(f"    ⚠  LLM returned safety/moderation response "
+                          f"(attempt {attempt}/{MAX_RETRIES})")
+                    markdown_report = None
+                else:
+                    break  # success
 
-            # null content — retry
-            print(f"    ⚠  LLM returned empty content (attempt {attempt}/{MAX_RETRIES})")
+            # null or safety — retry
+            if markdown_report is None:
+                print(f"    ⚠  LLM returned no valid content "
+                      f"(attempt {attempt}/{MAX_RETRIES})")
 
         except Exception as e:
             print(f"    ⚠  LLM API error (attempt {attempt}/{MAX_RETRIES}): {e}")
