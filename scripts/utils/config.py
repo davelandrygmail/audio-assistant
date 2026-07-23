@@ -107,6 +107,8 @@ class _Config:
         # ── processing ──
         proc = raw.get("processing", {})
         self.debounce_seconds: float = proc.get("debounce_seconds", 2.0)
+        self.chunk_minutes: int = proc.get("chunk_minutes", 0) or 0
+        self.chunk_overlap: int = proc.get("chunk_overlap", 5) or 5
         self.supported_extensions: set[str] = set(
             proc.get("supported_extensions", [".mp3", ".wav", ".m4a", ".flac", ".ogg", ".webm"])
         )
