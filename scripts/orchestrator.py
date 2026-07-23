@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from scripts.utils.config import get_config
+from scripts.utils.validate import validate_audio
 from scripts.processing.convert_wav import to_wav
 from scripts.processing.transcribe import transcribe
 from scripts.processing.diarize import diarize
@@ -78,10 +79,16 @@ def process_audio_file(path: Path) -> Dict[str, Optional[Path]]:
         return {"transcript_path": None, "report_path": None, "archive_path": None,
                 "error": f"File not found: {path}"}
 
-    size = path.stat().st_size
-    if size == 0:
+    # ── 0. validate ──────────────────────────────────────────────
+    validation = validate_audio(path)
+    print(f"    → Audio: {validation.format()}")
+    for warn in validation.warnings:
+        print(f"    ⚠  {warn}")
+    if not validation.valid:
+        for err in validation.errors:
+            print(f"    ✗  {err}")
         return {"transcript_path": None, "report_path": None, "archive_path": None,
-                "error": f"Empty file: {path}"}
+                "error": "; ".join(validation.errors)}
 
     cfg = get_config()
     _temp_dir: Optional[Path] = None
@@ -89,7 +96,7 @@ def process_audio_file(path: Path) -> Dict[str, Optional[Path]]:
     try:
         file_name = path.name
         write_status(file=file_name, phase="starting", status="processing")
-        print(f"[+] Processing {file_name} ({size / (1024*1024):.1f} MB)")
+        print(f"[+] Processing {file_name} ({path.stat().st_size / (1024*1024):.1f} MB)")
 
         # ── 1. convert to wav ──────────────────────────────────────
         write_status(file=file_name, phase="converting", status="processing")
