@@ -57,33 +57,46 @@ def analyze_with_llm(utterances: List[Dict], meeting_name: str) -> Path:
 
     cfg = get_config()
     client = _get_client()
+    markdown_report: Optional[str] = None
 
-    try:
-        response = client.chat.completions.create(
-            model=cfg.llm_model,
-            messages=[
-                {"role": "system", "content": "You are a precise executive‑assistant that follows the requested output format exactly."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=cfg.llm_temperature,
-        )
-        markdown_report = response.choices[0].message.content
-    except Exception as e:
+    MAX_RETRIES = 3
+    RETRY_DELAY_S = 15  # seconds between retries
+
+    import time
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = client.chat.completions.create(
+                model=cfg.llm_model,
+                messages=[
+                    {"role": "system", "content": "You are a precise executive‑assistant that follows the requested output format exactly."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=cfg.llm_temperature,
+            )
+            markdown_report = response.choices[0].message.content
+
+            if markdown_report is not None:
+                break  # success
+
+            # null content — retry
+            print(f"    ⚠  LLM returned empty content (attempt {attempt}/{MAX_RETRIES})")
+
+        except Exception as e:
+            print(f"    ⚠  LLM API error (attempt {attempt}/{MAX_RETRIES}): {e}")
+
+        if attempt < MAX_RETRIES:
+            print(f"       retrying in {RETRY_DELAY_S}s...")
+            time.sleep(RETRY_DELAY_S)
+
+    # All attempts exhausted — write fallback
+    if markdown_report is None:
         markdown_report = (
             "# LLM Analysis Failed\n\n"
-            f"The LLM returned an error: {e}\n\n"
+            f"The LLM was unreachable after {MAX_RETRIES} attempts.\n\n"
             "The transcript was saved successfully — re-run analysis when the provider is available.\n"
         )
-        print(f"    ⚠  LLM API error: {e} — fallback report written")
-    else:
-        if markdown_report is None:
-            markdown_report = (
-                "# LLM Analysis Failed\n\n"
-                "The LLM returned an empty response. "
-                "This may be due to a transient error with the model provider. "
-                "The transcript was saved successfully — re-run analysis when the provider is available.\n"
-            )
-            print("    ⚠  LLM returned None content — fallback report written")
+        print(f"    ✗  LLM unavailable after {MAX_RETRIES} attempts — fallback report written")
 
     out_dir = cfg.reports_dir
     out_dir.mkdir(parents=True, exist_ok=True)
