@@ -22,7 +22,8 @@ from scripts.utils.config import get_config
 from scripts.utils.validate import validate_audio
 from scripts.utils.chunk import split_wav, merge_chunk_transcripts
 from scripts.processing.convert_wav import to_wav
-from scripts.processing.transcribe import transcribe
+from scripts.processing.transcribe import transcribe, detect_language, \
+    LANGUAGE_MODEL_MAP, DEFAULT_FALLBACK_MODEL
 from scripts.processing.diarize import diarize
 from scripts.utils.align import words_from_whisper, assign_speakers, aggregate_utterances
 from scripts.ai.llm_analysis import analyze_with_llm
@@ -105,6 +106,22 @@ def process_audio_file(path: Path) -> Dict[str, Optional[Path]]:
         wav_path = to_wav(path, output_dir=_temp_dir)
         print(f"    → Converted to WAV ({wav_path.name})")
 
+        # ── 1b. language detection (if enabled) ────────────────────
+        if cfg.language_detection:
+            lang = detect_language(wav_path)
+            if lang in LANGUAGE_MODEL_MAP:
+                selected_model = LANGUAGE_MODEL_MAP[lang]
+            elif lang != "unknown":
+                selected_model = DEFAULT_FALLBACK_MODEL
+                print(f"    → Language '{lang}' not in model map — "
+                      f"falling back to {DEFAULT_FALLBACK_MODEL}")
+            else:
+                selected_model = cfg.whisper_model
+                print(f"    → Language detection failed — "
+                      f"using configured default ({cfg.whisper_model})")
+        else:
+            selected_model = cfg.whisper_model
+
         # ── 2. transcribe ──────────────────────────────────────────
         write_status(file=file_name, phase="transcribing", status="processing")
 
@@ -118,14 +135,14 @@ def process_audio_file(path: Path) -> Dict[str, Optional[Path]]:
                   f"(file is {validation.duration_s / 60:.0f} min)...")
             chunks = split_wav(wav_path, chunk_secs, chunk_overlap, temp_dir=_temp_dir)
             print(f"    → Transcribing {len(chunks)} chunks "
-                  f"({cfg.whisper_model})...")
+                  f"({selected_model})...")
 
             chunk_results: list = []
             for idx, (start, chunk_path) in enumerate(chunks, 1):
                 print(f"        chunk {idx}/{len(chunks)} "
                       f"({start / 60:.0f}–{(start + chunk_secs) / 60:.0f} min)...",
                       end="", flush=True)
-                chunk_res = transcribe(chunk_path, model_name=cfg.whisper_model)
+                chunk_res = transcribe(chunk_path, model_name=selected_model)
                 chunk_results.append((start, chunk_res))
                 print(" done.")
 
@@ -135,9 +152,9 @@ def process_audio_file(path: Path) -> Dict[str, Optional[Path]]:
             )
             print(" done.")
         else:
-            print(f"    → Starting transcription ({cfg.whisper_model})...",
+            print(f"    → Starting transcription ({selected_model})...",
                   end="", flush=True)
-            whisper_result = transcribe(wav_path, model_name=cfg.whisper_model)
+            whisper_result = transcribe(wav_path, model_name=selected_model)
             print(" done.")
 
         # ── 3. diarize ─────────────────────────────────────────────

@@ -90,6 +90,7 @@ class _Config:
         self.whisper_model: str = models.get("whisper", "distil-large-v2")
         self.whisper_device: str = models.get("whisper_device", "cpu")
         self.whisper_compute_type: str = models.get("whisper_compute_type", "int8")
+        self.language_detection: bool = models.get("language_detection", True)
 
         # ── diarization ──
         diar = raw.get("diarization", {})
