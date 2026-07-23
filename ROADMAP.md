@@ -18,7 +18,7 @@ commercial tools like the Plaud Note and Soundcore Work.
 ## 🟠 Moderate (afternoon)
 
 - [ ] **Custom vocabulary / hotwords** — Pass domain terms to faster-whisper for better accuracy
-- [ ] **Push notification on completion** — Telegram (or other) bot callback from the pipeline
+- [X] **Push notification on completion** — Telegram (or other) bot callback from the pipeline
 
 ## 🔴 Bigger build (days)
 
