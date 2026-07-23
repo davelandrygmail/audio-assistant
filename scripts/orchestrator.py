@@ -175,7 +175,7 @@ def process_audio_file(path: Path) -> Dict[str, Optional[Path]]:
         write_status(file=file_name, phase="saving transcript", status="processing")
         cfg.ensure_dirs()
         date_prefix = date.today().strftime("%Y%m%d")
-        transcript_path = cfg.transcripts_dir / f"{date_prefix}-{path.stem}.md"
+        transcript_path = cfg.transcripts_dir / f"{date_prefix}-trans-{path.stem}.md"
 
         with open(transcript_path, "w", encoding="utf-8") as f:
             f.write(f"# Transcript: {path.stem}\n\n")
