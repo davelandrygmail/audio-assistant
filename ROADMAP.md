@@ -6,7 +6,7 @@ commercial tools like the Plaud Note and Soundcore Work.
 ## 🟢 Trivial (minutes)
 
 - [ ] **Speaker naming** — Map `SPEAKER_00` → real names via config.yaml
-- [ ] **Auto language detection** — Pass `language=None` to Whisper (it auto-detects)
+- [X] **Auto language detection** — Pass `language=None` to Whisper (it auto-detects)
 - [ ] **Meeting type templates** — Selectable prompt templates (meeting, interview, lecture, etc.)
 - [ ] **Search across transcripts** — Simple grep alias or Python script over `~/meeting_reports/`
 
